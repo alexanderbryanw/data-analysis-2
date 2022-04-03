@@ -1,0 +1,178 @@
+---
+title: "IS388Praktek_UAS2021_AlexanderBryanWiratman_00000036371"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+#library
+  library(datasets)
+  library(ggplot2)
+  #install.packages("factoextra")
+  library(factoextra)
+  library(gridExtra)
+  library(cluster)
+  library(dplyr)
+
+#Membaca data
+library(readr)
+data <- read_csv("IS388Praktek_UAS2021_AlexanderBryanWiratman_00000036371.csv")
+View(data)
+
+#Cek kebenaran dan kelengkapan data
+library(psych)
+describe(data)
+str(data)
+
+#Visualisasi data
+boxplot(data$Umur,
+       xlab = "Umur",
+       ylab = "Tahun",
+       main = "Distribusi Umur Responden",
+       sub = "Alexander Bryan Wiratman 00000036371",
+       col = "cyan")
+
+
+datadomisili <- table(data$Domisili)
+lbls <- paste(names(datadomisili), "\n", round(100*datadomisili/sum(datadomisili), 1), "%", sep="")
+pie(datadomisili,
+       labels = lbls,
+       main = "Distribusi Domisili Responden",
+       sub = "Alexander Bryan Wiratman 00000036371",
+       col = c(7,4))
+
+
+datapenting <- table(data$OlahragaPenting)
+lbls <- paste(names(datapenting), "\n", round(100*datapenting/sum(datapenting), 1), "%", sep="")
+pie(datapenting,
+       labels = lbls,
+       main = "Anggapan Bahwa Olahraga itu Penting",
+       sub = "Alexander Bryan Wiratman 00000036371",
+       col = c(6,5))
+
+
+boxplot(data$DurasiOlahraga,
+       xlab = "Durasi Olahraga",
+       ylab = "Waktu (menit)",
+       main = "Distribusi Durasi Olahraga Responden Selama Pandemi",
+       sub = "Alexander Bryan Wiratman 00000036371",
+       col = "maroon")
+
+
+boxplot(data$IstOlahraga,
+       xlab = "Durasi Istirahat",
+       ylab = "Waktu (menit)",
+       main = "Durasi Istirahat Responden Setelah Olahraga Selama Pandemi",
+       sub = "Alexander Bryan Wiratman 00000036371",
+       col = "blue")
+
+
+boxplot(data$MlAirMinum,
+       xlab = "Konsumsi Air Mineral",
+       ylab = "Jumlah (ml)",
+       main = "Konsumsi Air Mineral Per Hari Responden Selama Pandemi",
+       sub = "Alexander Bryan Wiratman 00000036371",
+       col = "light blue")
+
+#CLUSTERING K-MEANS 3 klaster nstart = 25
+
+NIM <- 36371
+set.seed(NIM) 
+kluster <- stats::kmeans(data[,6:8], centers = 3, nstart = 25)
+names(kluster)
+
+##DurasiOlahraga VS DurasiIstirahat
+par(mfrow = c(1,1)) 
+plot(data[,6:7],col=kluster$cluster, main = "DurasiOlahraga VS DurasiIstirahat") 
+points(kluster$centers[,1:2], col=1:3, pch=8, cex=2)
+
+
+##DurasiIstirahat VS MlAirMinum
+par(mfrow = c(1,1))
+plot(data[,7:8], col = kluster$cluster, main = "DurasiIstirahat VS MlAirMinum")
+points(kluster$centers[,2:3], col = 1:3, pch = 8, cex = 2)
+
+###Elbow Plot
+    tot_withinss <- purrr::map_dbl(1:10, function(k){
+        model <- kmeans(x = data[,6:8], centers = k) 
+        model$tot.withinss })
+      
+    elbow_dat <- data.frame( k = 1:10, tot_withinss <- tot_withinss )  
+      
+    library(ggplot2)
+    ggplot2::ggplot(elbow_dat, aes(k, tot_withinss)) + 
+        geom_line() + 
+        geom_point(shape=21, color="black", fill="#69b3a2", size=2) + 
+        scale_x_continuous(breaks = 1:10)
+    #klaster optimum menurut elbow plot adalah 3
+    
+###Silhouette Plot
+    library(cluster)
+    avg_sil <- function(k) {
+        km.res <- kmeans(data[,6:8], centers = k, nstart = 25)
+        ss <- silhouette(km.res$cluster, dist(data[,6:8]))
+        mean(ss[, 3]) }
+      
+      k.values <- 2:15
+      
+      avg_sil_values <- purrr::map_dbl(k.values, avg_sil)
+      
+      plot(k.values, avg_sil_values, 
+           type = "b", pch = 19, frame = FALSE,
+           xlab = "Number of clusters K", 
+           ylab = "Average Silhouettes", ylim=c(0,1))
+      
+      factoextra::fviz_nbclust(data[,6:8], kmeans, method = "silhouette")
+      #klaster optimum menurut silhouette plot adalah 7
+      
+###Gap Statistic
+    gap_stat <- clusGap(data[,6:8], FUN = kmeans, nstart = 25,
+    K.max = 10, B = 50)
+    print(gap_stat, method = "firstmax")
+    fviz_gap_stat(gap_stat)
+    #klaster optimum menurut Gap Statistic adalah 1 (tidak perlu dicluster), namun apabila memang perlu dicluster, dapat menggunakan k terderkat yaitu 2.
+
+    
+#VISUALISASI CLUSTER 
+final <- kmeans(data[,6:8], 2, nstart = 25)
+print(final)
+fviz_cluster(final, data = data[,6:8])
+library(dplyr)
+data[,6:8] %>%
+mutate(Cluster = final$cluster) %>%
+group_by(Cluster) %>%
+summarise_all("mean")
+#Karena termasuk algoritma unsupervised machine learning serta jumlah kluster ditentukan oleh user maka tidak ada perhitungan akurasi dalam algoritma clustering. Jumlah cluster ditentukan berdasarkan metode pencarian jumlah cluster optimum dan kebutuhan user.
+
+
+#DECISION TREE DENGAN CTREE
+#install.packages("ISLR")
+library(ISLR)
+
+#Membuat Variabel Response 
+#Kategori cukup jika durasi olahraga >= 40 menit dalam sehari
+
+data$sehat <- ifelse(data$DurasiOlahraga > 40, "Cukup", "Kurang")
+data$sehat <- as.factor(data$sehat)
+
+library("party") 
+ctree <- ctree(sehat~DurasiOlahraga, data=data) 
+plot(ctree, type="simple")
+
+
+
+
+
+
+
+
+
+
+
+```
+
