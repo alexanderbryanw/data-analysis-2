@@ -9,4 +9,4 @@ Algorithm
 - Clustering
 - Decision Tree
 
-P.S. All details are in the jorunal and comments in .Rmd file
+P.S. All details are in the journal and comments in .Rmd file
